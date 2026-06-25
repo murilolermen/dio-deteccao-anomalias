@@ -9,7 +9,9 @@ from sklearn.metrics import classification_report
 from sklearn.metrics import precision_recall_curve
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, roc_auc_score
-
+from sklearn.ensemble import RandomForestClassifier
+from xgboost import XGBClassifier
+import shap
 #%%
 
 url = "https://storage.googleapis.com/download.tensorflow.org/data/creditcard.csv"
@@ -65,7 +67,7 @@ print(classification_report(y_test, y_pred))
 
 # %%
 # 1. Calcula as taxas de Falsos Positivos (fpr) e Verdadeiros Positivos (tpr)
-y_probs = modelo.predict_proba(X_test_escalonado)[:, 1]
+y_probs = model.predict_proba(x_test)[:, 1]
 fpr, tpr, thresholds = roc_curve(y_test, y_probs)
 
 # 2. Plota a Curva ROC
@@ -79,6 +81,7 @@ plt.show()
 print("AUC:", roc_auc_score(y_test, y_probs))
 
 #%%
+# Calcula a curva de precisão-recall
 precision, recall, _ = precision_recall_curve(y_test, y_probs)
 
 plt.plot(recall, precision)
@@ -86,4 +89,45 @@ plt.title("Precision-Recall Curve")
 plt.xlabel("Recall")
 plt.ylabel("Precision")
 plt.show()
+# %%
+
+#executando o modelo Random Forest para comparar com a regressão logística
+
+rf = RandomForestClassifier(
+    n_estimators=50,
+    max_depth=10,
+    class_weight="balanced",
+    n_jobs=-1,
+    random_state=42
+)
+
+rf.fit(x_train, y_train)
+
+y_pred_rf = rf.predict(x_test)
+
+print(classification_report(y_test, y_pred_rf))
+# %%
+
+# Inicializa o modelo XGBoost sem o parâmetro obsoleto
+xgb = XGBClassifier(
+    scale_pos_weight=10, # ajuda com desbalanceamento
+    eval_metric="logloss"
+)
+
+# Treina o modelo
+xgb.fit(x_train, y_train)
+
+# Faz as previsões
+y_pred_xgb = xgb.predict(x_test)
+
+# Imprime as métricas de avaliação
+print(classification_report(y_test, y_pred_xgb))
+# %%
+
+#mostra impacto de cada variável na decisão do modelo
+
+explainer = shap.TreeExplainer(xgb)
+shap_values = explainer(x_test)
+
+shap.plots.bar(shap_values)
 # %%
